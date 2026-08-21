@@ -867,8 +867,21 @@ function recomposeBuffers(state: CodexMapperState): void {
 
 function compose(byItemId: Map<string, string>, trailing: string): string {
   let out = ''
-  for (const value of byItemId.values()) out += value
-  return trailing ? out + trailing : out
+  for (const value of byItemId.values()) out = joinSegments(out, value)
+  return joinSegments(out, trailing)
+}
+
+// Each map entry (and the trailing harness buffer) is a distinct message:
+// bare concatenation glues the end of one sentence to the start of the next
+// ("…the log group.No errors…"). Join with a paragraph break, respecting
+// separators already present (ensureCommentarySegmentBreak pre-appends \n\n),
+// and only ever appending after the prior segment so already-streamed text
+// stays a prefix of the recomposed buffer.
+function joinSegments(prior: string, next: string): string {
+  if (!prior || !next) return prior + next
+  if (prior.endsWith('\n\n')) return prior + next
+  if (prior.endsWith('\n')) return `${prior}\n${next}`
+  return `${prior}\n\n${next}`
 }
 
 function extractDeltaText(event: any): string {
