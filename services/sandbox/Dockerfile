@@ -243,7 +243,8 @@ RUN set -eux; \
     chmod +x "$HOME/.amp/bin/amp"; \
     ln -sf "$HOME/.amp/bin/amp" "$HOME/.local/bin/amp"; \
     rm -f /tmp/amp.sha256; \
-    amp --version >/dev/null
+    (amp --version >/dev/null 2>&1 \
+      || echo "WARNING: amp --version failed (SIGILL under emulated amd64 build); binary installed unverified" >&2)
 
 # ── agent-browser: download Chrome binary (runs as agent, deps already installed) ─
 RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
