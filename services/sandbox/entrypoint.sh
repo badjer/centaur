@@ -386,6 +386,42 @@ path.write_text(json.dumps(_deep_merge(base, overlay), indent=2) + "\n")
 PYEOF
 fi
 
+# CLAUDE_MCP_SERVERS: operator-supplied MCP server definitions (the JSON object
+# that would sit under "mcpServers") merged into the user-scope ~/.claude.json.
+# Claude Code loads user-scope servers for every project with no per-project
+# approval, and a session pins its MCP config at first turn, so servers must
+# exist before the harness's first spawn -- which is why this runs here and not
+# in a hook. Mirrors codex's [mcp_servers.*] via CODEX_CONFIG_OVERLAY so a
+# deployment can wire the same MCP endpoint into both harnesses through
+# sandbox.extraEnv. Unset is a no-op; invalid JSON is ignored (no servers are
+# written) rather than partially applied.
+if [ -n "${CLAUDE_MCP_SERVERS:-}" ]; then
+    CLAUDE_USER_CONFIG_PATH="$HOME_DIR/.claude.json" python3 - <<'PYEOF'
+import json
+import os
+import sys
+from pathlib import Path
+
+path = Path(os.environ["CLAUDE_USER_CONFIG_PATH"])
+try:
+    servers = json.loads(os.environ["CLAUDE_MCP_SERVERS"])
+except json.JSONDecodeError as exc:
+    print(f"ignoring invalid CLAUDE_MCP_SERVERS: {exc}", file=sys.stderr)
+    sys.exit(0)
+if not isinstance(servers, dict):
+    print(
+        "ignoring CLAUDE_MCP_SERVERS: expected a JSON object mapping server "
+        "names to definitions",
+        file=sys.stderr,
+    )
+    sys.exit(0)
+existing = path.read_text() if path.exists() else ""
+config = json.loads(existing) if existing.strip() else {}
+config.setdefault("mcpServers", {}).update(servers)
+path.write_text(json.dumps(config, indent=2) + "\n")
+PYEOF
+fi
+
 # CLAUDE_CODE_AUTH_MODE selects how Claude Code authenticates with the upstream
 # (mirrors CODEX_AUTH_MODE):
 #   - api_key (default): Claude Code uses ANTHROPIC_API_KEY against
