@@ -422,6 +422,17 @@ path.write_text(json.dumps(config, indent=2) + "\n")
 PYEOF
 fi
 
+# Claude Code first-process warmup. The FIRST claude process in a sandbox with
+# MCP servers configured can end its turn silently (no assistant output, no
+# error) when spawned immediately at claim time; any subsequent process works.
+# Running one cheap non-model invocation here (full config load + MCP
+# handshake attempt; auth may not be bound yet and that is fine) ensures the
+# session's first real turn is never the first process. Skipped when no MCP
+# servers are configured - that path has no observed first-run failure.
+if [ -n "${CLAUDE_MCP_SERVERS:-}" ] && command -v claude >/dev/null 2>&1; then
+    (cd "$HOME_DIR" && timeout 60 claude mcp list >/dev/null 2>&1 || true)
+fi
+
 # CLAUDE_CODE_AUTH_MODE selects how Claude Code authenticates with the upstream
 # (mirrors CODEX_AUTH_MODE):
 #   - api_key (default): Claude Code uses ANTHROPIC_API_KEY against
