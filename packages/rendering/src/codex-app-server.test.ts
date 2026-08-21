@@ -53,6 +53,95 @@ describe('CodexAppServerRendererEventMapper', () => {
     })
   })
 
+  it('separates successive agent messages with a paragraph break instead of gluing them', () => {
+    const mapper = new CodexAppServerRendererEventMapper()
+
+    mapper.process({
+      type: 'item.started',
+      item: { id: 'cmd-1', type: 'commandExecution', command: 'aws logs tail' }
+    })
+
+    const first = mapper.process({
+      type: 'item.completed',
+      item: { id: 'msg-1', type: 'agentMessage', text: 'Found the application group.' }
+    })
+    expect(first).toContainEqual({
+      type: 'renderer.message.delta',
+      delta: 'Found the application group.',
+      force: false,
+      planPrefix: true
+    })
+
+    const second = mapper.process({
+      type: 'item.completed',
+      item: { id: 'msg-2', type: 'agentMessage', text: 'No errors in the past hour.' }
+    })
+    expect(second).toContainEqual({
+      type: 'renderer.message.delta',
+      delta: '\n\nNo errors in the past hour.',
+      force: false,
+      planPrefix: true
+    })
+  })
+
+  it('separates streamed final answer items without rewriting already-streamed text', () => {
+    const mapper = new CodexAppServerRendererEventMapper()
+
+    mapper.process({
+      type: 'item.started',
+      item: { id: 'cmd-1', type: 'commandExecution', command: 'pnpm test' }
+    })
+    mapper.process({
+      type: 'item.started',
+      item: { id: 'msg-1', type: 'agentMessage', phase: 'final_answer' }
+    })
+    mapper.process({ type: 'item.agentMessage.delta', itemId: 'msg-1', delta: 'First message.' })
+    mapper.process({
+      type: 'item.completed',
+      item: { id: 'msg-1', type: 'agentMessage', phase: 'final_answer', text: 'First message.' }
+    })
+    mapper.process({
+      type: 'item.started',
+      item: { id: 'msg-2', type: 'agentMessage', phase: 'final_answer' }
+    })
+
+    const events = mapper.process({
+      type: 'item.agentMessage.delta',
+      itemId: 'msg-2',
+      delta: 'Second message.'
+    })
+    expect(events).toContainEqual({
+      type: 'renderer.message.delta',
+      delta: '\n\nSecond message.',
+      force: false,
+      planPrefix: true
+    })
+  })
+
+  it('does not double paragraph breaks when a message already ends with one', () => {
+    const mapper = new CodexAppServerRendererEventMapper()
+
+    mapper.process({
+      type: 'item.started',
+      item: { id: 'cmd-1', type: 'commandExecution', command: 'pnpm test' }
+    })
+    mapper.process({
+      type: 'item.completed',
+      item: { id: 'msg-1', type: 'agentMessage', text: 'Heads up.\n\n' }
+    })
+
+    const events = mapper.process({
+      type: 'item.completed',
+      item: { id: 'msg-2', type: 'agentMessage', text: 'Details follow.' }
+    })
+    expect(events).toContainEqual({
+      type: 'renderer.message.delta',
+      delta: 'Details follow.',
+      force: false,
+      planPrefix: true
+    })
+  })
+
   it('suppresses commentary thinking blocks', () => {
     const mapper = new CodexAppServerRendererEventMapper()
 
@@ -699,7 +788,7 @@ describe('CodexAppServerRendererEventMapper', () => {
     run({ type: 'item.agentMessage.delta', itemId: 'A', delta: 'there ' })
 
     const streamed = deltas.join('')
-    expect(streamed).toBe('Hello world.')
+    expect(streamed).toBe('Hello \n\nworld.')
     expect(streamed).not.toContain('world.world.')
     expect(logs).toContain('codex_renderer_stream_divergence_suppressed')
     // The signal is recorded once per render, not on every subsequent event.
