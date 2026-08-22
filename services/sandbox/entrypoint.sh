@@ -420,6 +420,23 @@ case "$CLAUDE_CODE_AUTH_MODE" in
         ;;
 esac
 
+# ── Hermes config ────────────────────────────────────────────────────────────
+# HERMES_CONFIG_YAML / HERMES_ENV_FILE: operator-supplied Hermes config
+# (~/.hermes/config.yaml defines providers incl. custom OpenAI-compatible
+# endpoints and the default model; ~/.hermes/.env carries the env values its
+# ${VAR} references resolve from - deployments put self-referential
+# placeholders there and let iron-proxy swap real credentials on egress).
+# Written verbatim; unset is a no-op.
+if [ -n "${HERMES_CONFIG_YAML:-}" ]; then
+    mkdir -p "$HOME_DIR/.hermes"
+    printf '%s\n' "$HERMES_CONFIG_YAML" > "$HOME_DIR/.hermes/config.yaml"
+fi
+if [ -n "${HERMES_ENV_FILE:-}" ]; then
+    mkdir -p "$HOME_DIR/.hermes"
+    printf '%s\n' "$HERMES_ENV_FILE" > "$HOME_DIR/.hermes/.env"
+    chmod 600 "$HOME_DIR/.hermes/.env"
+fi
+
 # ── Per-session workspace clone (no shared worktree metadata) ────────────────
 if [ "${CENTAUR_PERSISTENT_STATE:-0}" = "1" ]; then
     WORKSPACE_DIR="$STATE_DIR/workspace"
