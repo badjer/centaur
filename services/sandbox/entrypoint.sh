@@ -294,6 +294,22 @@ if [ -n "${HERMES_ENV_FILE:-}" ]; then
     chmod 600 "$HOME_DIR/.hermes/.env"
 fi
 
+# ── Claude de-streaming shim ─────────────────────────────────────────────────
+# CLAUDE_DESTREAM_PROXY=1: route Claude Code's Anthropic-dialect traffic
+# through a local shim that forwards each request NON-streamed and synthesizes
+# the SSE stream from the complete response. Workaround for a provider whose
+# streaming path drops content (empty message, tokens still billed) while its
+# non-streamed responses are complete - verified live 2026-08-22 (6/6
+# non-streamed vs 1/6 streamed on an identical request). Remove when the
+# provider's streaming path is fixed. API_TIMEOUT_MS keeps Claude patient
+# while the full response is generated before any bytes arrive.
+if [ "${CLAUDE_DESTREAM_PROXY:-}" = "1" ] && [ -n "${ANTHROPIC_BASE_URL:-}" ]; then
+    DESTREAM_UPSTREAM="$ANTHROPIC_BASE_URL" python3 /usr/local/bin/claude-destream-proxy \
+        > "$HOME_DIR/.claude-destream.log" 2>&1 &
+    export ANTHROPIC_BASE_URL="http://127.0.0.1:8377"
+    export API_TIMEOUT_MS="${API_TIMEOUT_MS:-600000}"
+fi
+
 # ── Pi config ────────────────────────────────────────────────────────────────
 # PI_MODELS_JSON: operator-supplied Pi model catalog written to Pi's config
 # dir (providers/models incl. custom OpenAI-compatible endpoints; API keys
