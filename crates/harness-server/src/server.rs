@@ -1280,6 +1280,16 @@ fn finish_turn_with_error<W: Write>(
     Ok(())
 }
 
+/// CENTAUR_HARNESS_STREAM_DEBUG=1 mirrors every raw child-stdout line and
+/// turn-lifecycle decision to stderr (pod logs). Diagnostic only; off unless
+/// the deployment sets the env var.
+fn stream_debug() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| {
+        std::env::var("CENTAUR_HARNESS_STREAM_DEBUG").is_ok_and(|v| v.trim() == "1")
+    })
+}
+
 fn run_harness_turn<H: HarnessServer, W: Write>(
     harness: &H,
     state: &mut ThreadState,
@@ -1346,6 +1356,9 @@ fn run_harness_turn<H: HarnessServer, W: Write>(
                 if trimmed.is_empty() {
                     continue;
                 }
+                if stream_debug() {
+                    eprintln!("[stream-debug] raw: {trimmed}");
+                }
                 let event = harness.parse_stdout_line(trimmed)?;
                 let normalized_events = harness.normalize_events(&mut event_normalizer, event)?;
                 let mut terminal_stop = false;
@@ -1375,7 +1388,12 @@ fn run_harness_turn<H: HarnessServer, W: Write>(
                 }
             }
             Err(RecvTimeoutError::Timeout) => match settle_deadline {
-                Some(deadline) if Instant::now() >= deadline => terminal = true,
+                Some(deadline) if Instant::now() >= deadline => {
+                    if stream_debug() {
+                        eprintln!("[stream-debug] terminal: settle window elapsed");
+                    }
+                    terminal = true;
+                }
                 _ => continue,
             },
             Err(RecvTimeoutError::Disconnected) => {
@@ -1389,9 +1407,15 @@ fn run_harness_turn<H: HarnessServer, W: Write>(
                 // native result is never coming: the terminal stop already
                 // seen ends the turn.
                 if settle_deadline.is_some() && status.success() {
+                    if stream_debug() {
+                        eprintln!("[stream-debug] terminal: clean exit during settle window");
+                    }
                     state.process = None;
                     terminal = true;
                 } else {
+                    if stream_debug() {
+                        eprintln!("[stream-debug] child exited without terminal: {status:?}");
+                    }
                     return Err(HarnessServerError::HarnessExited {
                         kind: harness.kind(),
                         status,
