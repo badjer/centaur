@@ -4003,6 +4003,7 @@ fn harness_server_subcommand(harness: &HarnessType) -> &'static str {
         HarnessType::Amp => "amp",
         HarnessType::Nanocodex => "nanocodex",
         HarnessType::Hermes => "hermes",
+        HarnessType::Pi => "pi",
     }
 }
 

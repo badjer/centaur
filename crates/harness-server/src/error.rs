@@ -55,6 +55,8 @@ pub enum HarnessServerError {
     },
     #[error("Hermes exited with status {status}")]
     HermesExited { status: ExitStatus },
+    #[error("Pi exited with status {status}")]
+    PiExited { status: ExitStatus },
     #[error("{kind:?} turn interrupted")]
     TurnInterrupted { kind: HarnessKind },
     #[error("failed to spawn {bin} app-server: {source}")]
