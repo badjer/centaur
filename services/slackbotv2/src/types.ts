@@ -156,9 +156,9 @@ export type SlackbotV2Options = {
    */
   channelDefaults?: ChannelDefaults
   /**
-   * Harness for new threads when no --claude/--amp/--codex/--nanocodex/--hermes
+   * Harness for new threads when no --claude/--amp/--codex/--nanocodex/--hermes/--pi
    * flag is given (HarnessType wire value: codex | amp | claudecode |
-   * nanocodex | hermes). Defaults to codex.
+   * nanocodex | hermes | pi). Defaults to codex.
    */
   defaultHarnessType?: string
   fetch?: SlackbotV2Fetch
