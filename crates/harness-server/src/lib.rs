@@ -4,6 +4,7 @@ pub mod claude;
 pub mod codex;
 mod error;
 pub mod hermes;
+pub mod pi;
 mod nanocodex;
 mod nanocodex_subagents;
 mod otel;
@@ -16,6 +17,7 @@ pub mod wire;
 
 pub use error::{HarnessServerError, Result};
 pub use hermes::run_hermes_blocks_server;
+pub use pi::run_pi_blocks_server;
 pub use nanocodex::run_nanocodex_blocks_server;
 pub use server::{run_blocks_server, run_harness_server, run_validate_jsonrpc, server_for};
 pub use traits::{

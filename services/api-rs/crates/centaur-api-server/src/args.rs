@@ -2019,6 +2019,7 @@ fn harness_fragment_engine_name(engine: &HarnessType) -> &'static str {
         HarnessType::ClaudeCode => "claude-code",
         HarnessType::Nanocodex => "codex",
         HarnessType::Hermes => "hermes",
+        HarnessType::Pi => "pi",
     }
 }
 
@@ -2039,6 +2040,9 @@ fn harness_auth_mode_env(engine: &HarnessType) -> Option<String> {
         // Hermes resolves providers through its own credential store /
         // iron-proxy placeholder injection; no dedicated auth-mode env.
         HarnessType::Hermes => None,
+        // Pi resolves providers through its models.json catalog; credentials
+        // are env-var placeholders swapped by iron-proxy on egress.
+        HarnessType::Pi => None,
     }
 }
 
