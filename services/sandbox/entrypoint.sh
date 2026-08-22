@@ -277,6 +277,23 @@ else
     exit 1
 fi
 
+# ── Hermes config ────────────────────────────────────────────────────────────
+# HERMES_CONFIG_YAML / HERMES_ENV_FILE: operator-supplied Hermes config
+# (~/.hermes/config.yaml defines providers incl. custom OpenAI-compatible
+# endpoints and the default model; ~/.hermes/.env carries the env values its
+# ${VAR} references resolve from - deployments put self-referential
+# placeholders there and let iron-proxy swap real credentials on egress).
+# Written verbatim; unset is a no-op.
+if [ -n "${HERMES_CONFIG_YAML:-}" ]; then
+    mkdir -p "$HOME_DIR/.hermes"
+    printf '%s\n' "$HERMES_CONFIG_YAML" > "$HOME_DIR/.hermes/config.yaml"
+fi
+if [ -n "${HERMES_ENV_FILE:-}" ]; then
+    mkdir -p "$HOME_DIR/.hermes"
+    printf '%s\n' "$HERMES_ENV_FILE" > "$HOME_DIR/.hermes/.env"
+    chmod 600 "$HOME_DIR/.hermes/.env"
+fi
+
 # ── Pi config ────────────────────────────────────────────────────────────────
 # PI_MODELS_JSON: operator-supplied Pi model catalog written to Pi's config
 # dir (providers/models incl. custom OpenAI-compatible endpoints; API keys
