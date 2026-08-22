@@ -362,6 +362,7 @@ pub enum HarnessType {
     ClaudeCode,
     Nanocodex,
     Hermes,
+    Pi,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, AsRefStr, Display, EnumString)]

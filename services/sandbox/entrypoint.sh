@@ -305,6 +305,31 @@ else
     exit 1
 fi
 
+# ── Pi config ────────────────────────────────────────────────────────────────
+# PI_MODELS_JSON: operator-supplied Pi model catalog written to Pi's config
+# dir (providers/models incl. custom OpenAI-compatible endpoints; API keys
+# stay env-var references like "$UNBIASED_API_KEY", so no secret material
+# lands on disk). Unset is a no-op; invalid JSON is ignored rather than
+# written. The pi harness (crates/harness-server/src/pi.rs) reads
+# PI_MODEL/PI_MODEL_PROVIDER/PI_THINKING_LEVEL for its defaults.
+if [ -n "${PI_MODELS_JSON:-}" ]; then
+    PI_AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME_DIR/.pi/agent}" python3 - <<'PYEOF'
+import json
+import os
+import sys
+from pathlib import Path
+
+try:
+    parsed = json.loads(os.environ["PI_MODELS_JSON"])
+except json.JSONDecodeError as exc:
+    print(f"ignoring invalid PI_MODELS_JSON: {exc}", file=sys.stderr)
+    sys.exit(0)
+path = Path(os.environ["PI_AGENT_DIR"]) / "models.json"
+path.parent.mkdir(parents=True, exist_ok=True)
+path.write_text(json.dumps(parsed, indent=2) + "\n")
+PYEOF
+fi
+
 # ── Claude Code settings ────────────────────────────────────────────────────
 mkdir -p "$HOME_DIR/.claude"
 if [ -f "$HARNESS_CONFIG_DIR/claude/settings.json" ]; then
