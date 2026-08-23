@@ -277,6 +277,55 @@ else
     exit 1
 fi
 
+# ── Codex de-streaming shim ──────────────────────────────────────────────────
+# CODEX_DESTREAM_PROXY=1: route codex's Responses-dialect traffic through a
+# local shim that forwards each request NON-streamed and synthesizes the SSE
+# stream from the complete response. Workaround for a provider whose streaming
+# responses path drops trailing output blocks (announce-then-stop: the tool
+# call is dropped, only the preamble message survives; verified 6/6 streamed
+# drop the function_call vs 6/6 non-streamed keep it). Rewrites every
+# model_providers.*.base_url in the composed config.toml to the shim,
+# preserving each URL's path so upstream routing is unchanged. Remove when the
+# provider's streaming path is fixed.
+if [ "${CODEX_DESTREAM_PROXY:-}" = "1" ] && [ -f "$HOME_DIR/.codex/config.toml" ]; then
+    DESTREAM_UPSTREAM_FILE="$HOME_DIR/.codex-destream-upstream" \
+    CODEX_CONFIG_PATH="$HOME_DIR/.codex/config.toml" python3 - <<'PYEOF2'
+import os
+import re
+from pathlib import Path
+
+path = Path(os.environ["CODEX_CONFIG_PATH"])
+lines = path.read_text().splitlines()
+# The shim listens on 8378 and forwards to the ORIGIN of the original base_url
+# (it uses the request path as-is), so every provider's path must be preserved
+# in the rewritten value. All providers here share one upstream origin
+# (api.unbiased.ai); the first base_url seen is the shim's upstream.
+upstream = ""
+pattern = re.compile(r'^(\s*base_url\s*=\s*)"([^"]+)"(.*)$')
+out = []
+for line in lines:
+    m = pattern.match(line)
+    if m and "127.0.0.1" not in m.group(2):
+        if not upstream:
+            upstream = m.group(2)
+        # keep the original URL's path so codex hits /<path>/responses
+        from urllib.parse import urlsplit
+        parts = urlsplit(m.group(2))
+        shim = f"http://127.0.0.1:8378{parts.path}"
+        out.append(f'{m.group(1)}"{shim}"{m.group(3)}')
+    else:
+        out.append(line)
+path.write_text("\n".join(out).rstrip() + "\n")
+if upstream:
+    Path(os.environ["DESTREAM_UPSTREAM_FILE"]).write_text(upstream)
+PYEOF2
+    if [ -s "$HOME_DIR/.codex-destream-upstream" ]; then
+        DESTREAM_UPSTREAM="$(cat "$HOME_DIR/.codex-destream-upstream")" DESTREAM_PORT=8378 \
+            python3 /usr/local/bin/codex-destream-proxy \
+            > "$HOME_DIR/.codex-destream.log" 2>&1 &
+    fi
+fi
+
 # ── Hermes config ────────────────────────────────────────────────────────────
 # HERMES_CONFIG_YAML / HERMES_ENV_FILE: operator-supplied Hermes config
 # (~/.hermes/config.yaml defines providers incl. custom OpenAI-compatible
