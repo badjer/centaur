@@ -289,29 +289,35 @@ fi
 # provider's streaming path is fixed.
 if [ "${CODEX_DESTREAM_PROXY:-}" = "1" ] && [ -f "$HOME_DIR/.codex/config.toml" ]; then
     DESTREAM_UPSTREAM_FILE="$HOME_DIR/.codex-destream-upstream" \
+    DESTREAM_PROVIDER="${CODEX_MODEL_PROVIDER:-}" \
     CODEX_CONFIG_PATH="$HOME_DIR/.codex/config.toml" python3 - <<'PYEOF2'
 import os
 import re
 from pathlib import Path
+from urllib.parse import urlsplit
 
 path = Path(os.environ["CODEX_CONFIG_PATH"])
+# Rewrite ONLY the ACTIVE provider's base_url (CODEX_MODEL_PROVIDER). The shim
+# forwards to a SINGLE upstream origin using the request path as-is; handing it
+# a config where providers with different origins (openrouter, meta, pareto) all
+# point at it would misroute, since only one origin can be the upstream. Only
+# the selected provider's traffic actually flows, so its origin is the one the
+# shim needs and the only base_url that should change.
+provider = (os.environ.get("DESTREAM_PROVIDER") or "").strip()
+target_header = f"[model_providers.{provider}]" if provider else None
 lines = path.read_text().splitlines()
-# The shim listens on 8378 and forwards to the ORIGIN of the original base_url
-# (it uses the request path as-is), so every provider's path must be preserved
-# in the rewritten value. All providers here share one upstream origin
-# (api.unbiased.ai); the first base_url seen is the shim's upstream.
+in_target = False
 upstream = ""
-pattern = re.compile(r'^(\s*base_url\s*=\s*)"([^"]+)"(.*)$')
+base_re = re.compile(r'^(\s*base_url\s*=\s*)"([^"]+)"(.*)$')
+header_re = re.compile(r'^\s*\[')
 out = []
 for line in lines:
-    m = pattern.match(line)
-    if m and "127.0.0.1" not in m.group(2):
-        if not upstream:
-            upstream = m.group(2)
-        # keep the original URL's path so codex hits /<path>/responses
-        from urllib.parse import urlsplit
-        parts = urlsplit(m.group(2))
-        shim = f"http://127.0.0.1:8378{parts.path}"
+    if header_re.match(line):
+        in_target = target_header is not None and line.strip() == target_header
+    m = base_re.match(line)
+    if m and in_target and "127.0.0.1" not in m.group(2):
+        upstream = m.group(2)
+        shim = f"http://127.0.0.1:8378{urlsplit(m.group(2)).path}"
         out.append(f'{m.group(1)}"{shim}"{m.group(3)}')
     else:
         out.append(line)
