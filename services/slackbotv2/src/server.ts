@@ -70,7 +70,13 @@ const options: SlackbotV2Options = {
     ...(optionalEnv('CLAUDE_MODEL') ? { claudecode: optionalEnv('CLAUDE_MODEL')! } : {}),
     ...(optionalEnv('CODEX_MODEL')
       ? { codex: optionalEnv('CODEX_MODEL')!, nanocodex: optionalEnv('CODEX_MODEL')! }
-      : {})
+      : {}),
+    // Pi and Hermes carry their model in their own harness config (PI_MODEL /
+    // the Hermes config.yaml), which slackbotv2 doesn't otherwise see, so the
+    // footer showed the harness with no model. Mirror them via env (set in
+    // slackbotv2.extraEnv) so the metadata line reads e.g. "PARETO · Pi".
+    ...(optionalEnv('PI_MODEL') ? { pi: optionalEnv('PI_MODEL')! } : {}),
+    ...(optionalEnv('HERMES_MODEL') ? { hermes: optionalEnv('HERMES_MODEL')! } : {})
   },
   harnessDefaultReasoning: optionalEnv('CODEX_MODEL_REASONING_EFFORT')
     ? {
