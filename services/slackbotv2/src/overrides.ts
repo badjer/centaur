@@ -113,8 +113,13 @@ const STRATEGY_MODEL_HARNESSES: Record<string, string> = {
 const MODEL_VALUE_SEPARATOR = String.raw`(?:[^\S\r\n]*=[^\S\r\n]*|[^\S\r\n]+)`
 const FLAG_VALUE_BOUNDARY = String.raw`(?=[^\S\r\n]|\r?\n|\r|<br\s*/?>|$)`
 
+// Flag prefix: canonical `--`, plus a lone `-` and the em/en dashes that
+// smart-punctuation clients silently substitute for `--`. All are
+// whitespace-anchored, so hyphenated prose ("alpha-pi") never matches.
+const FLAG_PREFIX = String.raw`(?:--?|[\u2013\u2014])`
+
 const MODEL_FLAG_PATTERN = new RegExp(
-  String.raw`(?:^|\s)--model${MODEL_VALUE_SEPARATOR}([A-Za-z0-9._/-]+)${FLAG_VALUE_BOUNDARY}`,
+  String.raw`(?:^|\s)${FLAG_PREFIX}model${MODEL_VALUE_SEPARATOR}([A-Za-z0-9._/-]+)${FLAG_VALUE_BOUNDARY}`,
   'i'
 )
 
@@ -300,7 +305,7 @@ function cleanString(value: unknown): string | undefined {
 }
 
 function flagPattern(flag: string): RegExp {
-  return new RegExp(`(?:^|\\s)--${flag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=\\s|$)`, 'i')
+  return new RegExp(`(?:^|\\s)${FLAG_PREFIX}${flag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=\\s|$)`, 'i')
 }
 
 function stripMatch(text: string, match: RegExpExecArray): string {

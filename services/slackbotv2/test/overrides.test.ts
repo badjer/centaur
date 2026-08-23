@@ -33,6 +33,12 @@ describe('extractMessageOverrides', () => {
     expect(extractMessageOverrides('--nanocodex review this').harnessType).toBe('nanocodex')
     expect(extractMessageOverrides('--hermes review this').harnessType).toBe('hermes')
     expect(extractMessageOverrides('--pi review this').harnessType).toBe('pi')
+    expect(extractMessageOverrides('-pi review this').harnessType).toBe('pi')
+    expect(extractMessageOverrides('\u2014claude review this').harnessType).toBe('claudecode')
+    expect(extractMessageOverrides('\u2013codex review this').harnessType).toBe('codex')
+    expect(extractMessageOverrides('-claude can you check this?').harnessType).toBe('claudecode')
+    expect(extractMessageOverrides('alpha-pi is a protein').harnessType).toBeUndefined()
+    expect(extractMessageOverrides('-model opus go').model).toBe('claude-opus-4-8')
   })
 
   test('parses harness flag anywhere in the message', () => {
