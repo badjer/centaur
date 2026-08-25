@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { EMPTY_FINAL_ANSWER_TEXT } from './chat-sdk'
 import {
   CodexAppServerRendererEventMapper,
   codexAppServerToChatSdkStream,
@@ -859,6 +860,214 @@ async function collect<T>(source: AsyncIterable<T>): Promise<T[]> {
 async function* toAsyncIterable<T>(source: Iterable<T>): AsyncIterable<T> {
   for (const item of source) yield item
 }
+
+// Production shapes captured from the bot deployment on 2026-08-25 after
+// gpu-router#463 (codex tags text emitted alongside tool calls `commentary`
+// and the turn's answer `final_answer`; the de-streaming shim puts the phase on
+// item/started). Events are in the app-server JSON-RPC form api-rs stores; the
+// two fixtures are complete captured turns.
+import bot1 from './fixtures/bot-codex-preamble-tool-answer-1.json'
+import bot2 from './fixtures/bot-codex-preamble-tool-answer-2.json'
+
+const TASK = { commentaryDisplay: 'task' as const, preStreamGraceMs: 0 }
+const PREAMBLE = "I'm going to list the root directory entries with `ls /`, then count them."
+const ANSWER = '`ls /` printed 32 entries.'
+
+function agentMessage(id: string, phase: string | null, text: string) {
+  return [
+    { method: 'item/started', params: { item: { id, type: 'agentMessage', phase, text: '' } } },
+    { method: 'item/agentMessage/delta', params: { itemId: id, delta: text } },
+    { method: 'item/completed', params: { item: { id, type: 'agentMessage', phase, text } } }
+  ]
+}
+function command(id: string) {
+  return [
+    { method: 'item/started', params: { item: { id, type: 'commandExecution', command: "/bin/bash -lc 'ls /'", status: 'inProgress' } } },
+    {
+      method: 'item/completed',
+      params: { item: { id, type: 'commandExecution', command: "/bin/bash -lc 'ls /'", aggregatedOutput: 'bin\nboot\n', exitCode: 0, status: 'completed' } }
+    }
+  ]
+}
+const TURN_COMPLETED = { method: 'turn/completed', params: { turn: { id: 't1', status: 'completed', error: null } } }
+const POST_463_TURN = [
+  ...agentMessage('msg_1', 'commentary', PREAMBLE),
+  ...command('call_1'),
+  ...agentMessage('msg_2', 'final_answer', ANSWER),
+  TURN_COMPLETED
+]
+const PRE_463_TURN = [
+  ...agentMessage('msg_1', 'final_answer', PREAMBLE),
+  ...command('call_1'),
+  ...agentMessage('msg_2', 'final_answer', ANSWER),
+  TURN_COMPLETED
+]
+
+type Chunk = Record<string, unknown> & { type: string; text?: string; id?: string }
+async function chunksOf(events: unknown[], options: Record<string, unknown>): Promise<Chunk[]> {
+  return (await collect(codexAppServerToChatSdkStream(toAsyncIterable(events), options))) as Chunk[]
+}
+function markdownOf(chunks: Chunk[]): string {
+  return chunks.filter(c => c.type === 'markdown_text').map(c => c.text ?? '').join('')
+}
+function thinkingOf(chunks: Chunk[]): Chunk[] {
+  return chunks.filter(c => c.type === 'task_update' && String(c.id).startsWith('commentary-'))
+}
+function taskOrder(chunks: Chunk[]): string[] {
+  const seen: string[] = []
+  for (const c of chunks) if (c.type === 'task_update' && !seen.includes(String(c.id))) seen.push(String(c.id))
+  return seen
+}
+
+describe('commentaryDisplay: task', () => {
+  it('shows a phased preamble as a live Thinking card and only the final answer as text', async () => {
+    const chunks = await chunksOf(POST_463_TURN, TASK)
+    expect(thinkingOf(chunks)).toEqual([
+      { type: 'task_update', id: 'commentary-msg_1', title: 'Thinking', status: 'in_progress', details: PREAMBLE },
+      { type: 'task_update', id: 'commentary-msg_1', title: 'Thinking', status: 'complete', details: PREAMBLE }
+    ])
+    expect(markdownOf(chunks)).toBe(ANSWER)
+  })
+
+  it('replays the captured production turns: preamble in Thinking, answer in markdown, nothing in both', async () => {
+    for (const fixture of [bot1, bot2]) {
+      const chunks = await chunksOf(fixture as unknown[], TASK)
+      const completed = (fixture as Array<{ method: string; params: { item?: { type?: string; phase?: string; text?: string } } }>)
+        .filter(e => e.method === 'item/completed' && e.params.item?.type === 'agentMessage')
+        .map(e => e.params.item!)
+      const preamble = completed.find(i => i.phase === 'commentary')!.text!
+      const answer = completed.find(i => i.phase === 'final_answer')!.text!
+      const thinking = thinkingOf(chunks)
+      expect(thinking.at(-1)).toMatchObject({ title: 'Thinking', status: 'complete', details: preamble })
+      expect(markdownOf(chunks)).toBe(answer)
+      expect(markdownOf(chunks)).not.toContain(preamble)
+    }
+  })
+
+  it('keeps each preamble as its own card, in order between the tool cards it preceded', async () => {
+    const chunks = await chunksOf(
+      [
+        ...agentMessage('msg_1', 'commentary', 'Checking the logs.'),
+        ...command('call_1'),
+        ...agentMessage('msg_2', 'commentary', 'Logs show a 502; checking the router.'),
+        ...command('call_2'),
+        ...agentMessage('msg_3', 'final_answer', 'Root cause: router restarted.'),
+        TURN_COMPLETED
+      ],
+      TASK
+    )
+    expect(taskOrder(chunks)).toEqual(['commentary-msg_1', 'call_1', 'commentary-msg_2', 'call_2'])
+    const finals = thinkingOf(chunks).filter(c => c.status === 'complete')
+    expect(finals.map(c => c.details)).toEqual(['Checking the logs.', 'Logs show a 502; checking the router.'])
+    expect(markdownOf(chunks)).toBe('Root cause: router restarted.')
+  })
+
+  it('is a no-op for turns the harness phases entirely final_answer', async () => {
+    const withTask = await chunksOf(PRE_463_TURN, TASK)
+    const upstream = await chunksOf(PRE_463_TURN, { preStreamGraceMs: 0 })
+    expect(thinkingOf(withTask)).toEqual([])
+    expect(withTask).toEqual(upstream)
+    expect(markdownOf(withTask)).toBe(`${PREAMBLE}\n\n${ANSWER}`)
+  })
+
+  it('renders an unphased, tool-less reply (Pi/Hermes shape) exactly as before', async () => {
+    const events = [...agentMessage('pi-msg-1-1', null, 'Four.'), TURN_COMPLETED]
+    const withTask = await chunksOf(events, TASK)
+    expect(thinkingOf(withTask)).toEqual([])
+    expect(markdownOf(withTask)).toBe('Four.')
+    expect(withTask).toEqual(await chunksOf(events, { preStreamGraceMs: 0 }))
+  })
+
+  it('leaves the default (hidden) behaviour unchanged', async () => {
+    const chunks = await chunksOf(POST_463_TURN, { preStreamGraceMs: 0 })
+    expect(thinkingOf(chunks)).toEqual([])
+    expect(markdownOf(chunks)).toBe(ANSWER)
+  })
+
+  it('promotes the last commentary item to the answer when the turn never phases a final answer', async () => {
+    const chunks = await chunksOf(
+      [
+        ...agentMessage('msg_1', 'commentary', PREAMBLE),
+        ...command('call_1'),
+        ...agentMessage('msg_2', 'commentary', 'Done — fixed foo.ts.'),
+        ...command('call_2'),
+        TURN_COMPLETED
+      ],
+      TASK
+    )
+    expect(markdownOf(chunks)).toBe('Done — fixed foo.ts.')
+    expect(markdownOf(chunks)).not.toContain(EMPTY_FINAL_ANSWER_TEXT)
+    // The promoted item's card had already completed with its text; that
+    // duplicate inside a collapsed card is the accepted trade-off.
+    const finals = thinkingOf(chunks).filter(c => c.status === 'complete')
+    expect(finals.map(c => c.details)).toEqual([PREAMBLE, 'Done — fixed foo.ts.'])
+    expect(thinkingOf(chunks).filter(c => c.status === 'in_progress').map(c => c.id)).toEqual([
+      'commentary-msg_1',
+      'commentary-msg_2'
+    ])
+  })
+
+  it('keeps text in the answer when its commentary phase arrives only on item.completed', async () => {
+    const logged: string[] = []
+    const chunks = await chunksOf(
+      [
+        { method: 'item/started', params: { item: { id: 'msg_1', type: 'agentMessage', phase: null, text: '' } } },
+        { method: 'item/agentMessage/delta', params: { itemId: 'msg_1', delta: PREAMBLE } },
+        { method: 'item/completed', params: { item: { id: 'msg_1', type: 'agentMessage', phase: 'commentary', text: PREAMBLE } } },
+        ...command('call_1'),
+        ...agentMessage('msg_2', 'final_answer', ANSWER),
+        TURN_COMPLETED
+      ],
+      { ...TASK, logInfo: (event: string) => logged.push(event) }
+    )
+    expect(markdownOf(chunks)).toBe(`${PREAMBLE}\n\n${ANSWER}`)
+    expect(thinkingOf(chunks)).toEqual([])
+    expect(logged).toContain('codex_renderer_late_commentary_phase')
+  })
+
+  it('completes each card at its own item.completed, not at turn end', () => {
+    const mapper = new CodexAppServerRendererEventMapper(TASK)
+    const cardsFrom = (events: unknown[]) =>
+      events.flatMap(e => mapper.process(e)).flatMap(e =>
+        e.type === 'renderer.task.update' && e.task.id.startsWith('commentary-') ? [`${e.task.id}=${e.task.status}`] : []
+      )
+    const [started, delta, completed] = agentMessage('msg_1', 'commentary', PREAMBLE)
+    expect(cardsFrom([started])).toEqual([])
+    expect(cardsFrom([delta])).toEqual(['commentary-msg_1=in_progress'])
+    // The completion carries the same text the delta already built; the card
+    // must still complete here, before the tool runs.
+    expect(cardsFrom([completed])).toEqual(['commentary-msg_1=complete'])
+    expect(cardsFrom(command('call_1'))).toEqual([])
+    expect(cardsFrom(agentMessage('msg_2', 'final_answer', ANSWER))).toEqual([])
+    expect(cardsFrom([TURN_COMPLETED])).toEqual([])
+  })
+
+  it('errors only the card still open when the execution fails', () => {
+    const mapper = new CodexAppServerRendererEventMapper(TASK)
+    for (const e of [...agentMessage('msg_1', 'commentary', 'Checking.'), ...command('call_1'), ...agentMessage('msg_2', 'commentary', 'Digging.'), ...command('call_2')]) mapper.process(e)
+    // Two preambles completed normally: a failure now touches neither card.
+    const afterCompleted = mapper.process({ eventKind: 'session.execution_failed', data: { error: 'boom' } })
+    expect(afterCompleted.filter(e => e.type === 'renderer.task.update' && e.task.id.startsWith('commentary-'))).toEqual([])
+
+    const inFlight = new CodexAppServerRendererEventMapper(TASK)
+    for (const e of [...agentMessage('msg_1', 'commentary', 'Checking.'), ...command('call_1')]) inFlight.process(e)
+    inFlight.process({ method: 'item/started', params: { item: { id: 'msg_2', type: 'agentMessage', phase: 'commentary', text: '' } } })
+    inFlight.process({ method: 'item/agentMessage/delta', params: { itemId: 'msg_2', delta: 'Digg' } })
+    const out = inFlight.process({ eventKind: 'session.execution_failed', data: { error: 'boom' } })
+    const cards = out.flatMap(e => (e.type === 'renderer.task.update' && e.task.id.startsWith('commentary-') ? [`${e.task.id}=${e.task.status}`] : []))
+    expect(cards).toEqual(['commentary-msg_2=error'])
+  })
+
+  it('closes an open Thinking card as error when the execution fails', () => {
+    const mapper = new CodexAppServerRendererEventMapper(TASK)
+    mapper.process({ method: 'item/started', params: { item: { id: 'msg_1', type: 'agentMessage', phase: 'commentary', text: '' } } })
+    mapper.process({ method: 'item/agentMessage/delta', params: { itemId: 'msg_1', delta: 'Checking' } })
+    const out = mapper.process({ eventKind: 'session.execution_failed', data: { error: 'boom' } })
+    const cards = out.filter(e => e.type === 'renderer.task.update' && e.task.id === 'commentary-msg_1')
+    expect(cards).toHaveLength(1)
+    expect(cards[0]!.type === 'renderer.task.update' && cards[0]!.task.status).toBe('error')
+  })
+})
 
 describe('codexAppServerToRendererEvents', () => {
   it('flushes buffered answer text and emits renderer.done when the source ends without a terminal event', () => {

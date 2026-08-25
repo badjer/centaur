@@ -83,6 +83,7 @@ const options: SlackbotV2Options = {
   idleTimeoutMs: optionalNumberEnv('SESSION_IDLE_TIMEOUT_MS'),
   maxDurationMs: optionalNumberEnv('SESSION_MAX_DURATION_MS'),
   messageOverridesStrategy: createMessageOverridesStrategy(),
+  mapper: { commentaryDisplay: commentaryDisplayEnv('SLACKBOTV2_COMMENTARY_DISPLAY') },
   postgresUrl:
     optionalEnv('SLACKBOTV2_DATABASE_URL') ??
     optionalEnv('DATABASE_URL') ??
@@ -165,6 +166,13 @@ function responseMetadataModeEnv(name: string): 'first' | 'always' | 'never' {
   if (!value) return 'first'
   if (value === 'first' || value === 'always' || value === 'never') return value
   throw new Error(`${name} must be "first", "always", or "never"`)
+}
+
+function commentaryDisplayEnv(name: string): 'hidden' | 'task' | undefined {
+  const value = optionalEnv(name)?.toLowerCase()
+  if (!value) return undefined
+  if (value === 'hidden' || value === 'task') return value
+  throw new Error(`${name} must be "hidden" or "task"`)
 }
 
 function createMessageOverridesStrategy(): SlackbotV2Options['messageOverridesStrategy'] {

@@ -64,6 +64,9 @@ type CodexMapperState = {
   emittedActivityRunByTaskId: Map<string, string>
   emittedActivityOutputByTaskId: Map<string, string>
   emittedActivitySignatureByTaskId: Map<string, string>
+  // Per commentary item: the last "Thinking" task update sent (text + status),
+  // so identical updates aren't repeated and open cards get closed at the end.
+  emittedCommentaryTaskByItemId: Map<string, { text: string; status: RendererTaskStatus }>
   done: boolean
 }
 
@@ -71,6 +74,11 @@ export type CodexAppServerRendererEventMapperOptions = {
   sessionId?: string
   logInfo?: RendererLogInfo
   unknownAgentMessagePhase?: AgentMessagePhase
+  // What to do with commentary-phased agent text (preambles between tool
+  // calls): drop it (upstream default) or show each item as a collapsible
+  // "Thinking" task, interleaved with the tool cards it preceded, so progress
+  // stays visible without landing in the answer.
+  commentaryDisplay?: 'hidden' | 'task'
   taskOutput?: 'full' | 'omit'
   // How long buffered assistant text waits for plan/tasks to arrive before it
   // streams anyway. The check is event-driven — with no tasks and no further
@@ -92,6 +100,7 @@ export class CodexAppServerRendererEventMapper
   private readonly sessionId: string
   private readonly logInfo?: RendererLogInfo
   private readonly unknownAgentMessagePhase: AgentMessagePhase
+  private readonly commentaryDisplay: 'hidden' | 'task'
   private readonly includeTaskOutput: boolean
   private readonly preStreamGraceMs: number
 
@@ -99,6 +108,7 @@ export class CodexAppServerRendererEventMapper
     this.sessionId = options.sessionId ?? ''
     this.logInfo = options.logInfo
     this.unknownAgentMessagePhase = options.unknownAgentMessagePhase ?? 'final_answer'
+    this.commentaryDisplay = options.commentaryDisplay ?? 'hidden'
     this.includeTaskOutput = options.taskOutput === 'full'
     this.preStreamGraceMs = options.preStreamGraceMs ?? PRE_STREAM_GRACE_MS
   }
@@ -125,6 +135,7 @@ export class CodexAppServerRendererEventMapper
     completeOpenTasks(this.state)
     this.emitActivitySummary(out, { final: true })
     this.ensureFinalAnswerText()
+    this.closeOpenCommentaryTasks(out, 'complete')
     this.emitPendingAssistantText(out, { force: true })
     out.push({
       type: 'renderer.done',
@@ -293,6 +304,12 @@ export class CodexAppServerRendererEventMapper
     if (eventCarriesAgentMessageText(event)) {
       const buffer = this.activeAssistantBuffer(event)
       const update = this.applyAgentMessageUpdate(event, buffer)
+      // item.completed usually repeats the text the deltas already built
+      // (bufferChanged=false) but it is still the card's completion.
+      const completed = event?.type === 'item.completed'
+      if (buffer === 'commentary' && (update.bufferChanged || completed)) {
+        this.emitCommentaryTask(out, agentMessageEventId(event), completed ? 'complete' : 'in_progress')
+      }
       if (update.bufferChanged) {
         this.emitPendingAssistantText(out)
       }
@@ -345,6 +362,7 @@ export class CodexAppServerRendererEventMapper
       recomposeBuffers(this.state)
     }
     this.emitActivitySummary(out, { final: true })
+    this.closeOpenCommentaryTasks(out, 'error')
     this.emitPendingAssistantText(out, { force: true })
     out.push({
       type: 'renderer.done',
@@ -358,8 +376,53 @@ export class CodexAppServerRendererEventMapper
 
   private ensureFinalAnswerText(): void {
     if (this.state.answerText.trim()) return
+    // No final_answer text but the turn did say something: the last
+    // commentary item is the closest thing to an answer (codex's own
+    // last_agent_message ignores phase the same way). Earlier commentary
+    // stays commentary. Its Thinking card, if one was shown, keeps the same
+    // text - a duplicate inside a collapsed card beats a spinner or the
+    // "no final text" placeholder, and this shape (a final summary emitted
+    // alongside a bookkeeping tool call) is rare.
+    const lastId = lastInsertedKey(this.state.commentaryByItemId)
+    if (lastId && (this.state.commentaryByItemId.get(lastId) ?? '').trim()) {
+      this.state.answerByItemId.set(lastId, this.state.commentaryByItemId.get(lastId) ?? '')
+      this.state.commentaryByItemId.delete(lastId)
+      recomposeBuffers(this.state)
+      return
+    }
     this.state.harnessAnswerText += EMPTY_FINAL_ANSWER_TEXT
     recomposeBuffers(this.state)
+  }
+
+  // One "Thinking" task per commentary item (as nanocodex does), keyed by the
+  // item id so it sits between the tool cards it preceded. The whole item text
+  // goes out on every change - task updates replace, not append.
+  private emitCommentaryTask(out: RendererEvent[], itemId: string, status: RendererTaskStatus): void {
+    if (this.commentaryDisplay !== 'task' || !itemId) return
+    const shown = this.state.emittedCommentaryTaskByItemId.get(itemId)
+    const commentary = (this.state.commentaryByItemId.get(itemId) ?? '').trim() || (shown?.text ?? '')
+    if (!commentary) return
+    if (shown && shown.text === commentary && shown.status === status) return
+    this.state.emittedCommentaryTaskByItemId.set(itemId, { text: commentary, status })
+    out.push({
+      type: 'renderer.task.update',
+      task: {
+        id: `commentary-${itemId}`,
+        title: 'Thinking',
+        status,
+        details: [section([text(commentary)])],
+        output: []
+      },
+      flush: true
+    })
+  }
+
+  // A card left in_progress is a spinner forever: close whatever is still open
+  // when the turn ends, with the text it last showed.
+  private closeOpenCommentaryTasks(out: RendererEvent[], status: RendererTaskStatus): void {
+    for (const [itemId, shown] of this.state.emittedCommentaryTaskByItemId) {
+      if (shown.status === 'in_progress') this.emitCommentaryTask(out, itemId, status)
+    }
   }
 
   private emitActivitySummary(out: RendererEvent[], opts: { final?: boolean } = {}): void {
@@ -441,6 +504,17 @@ export class CodexAppServerRendererEventMapper
     if (event?.type === 'item.agentMessage.delta' || event?.type === 'item.completed') {
       const codexId = agentMessageEventId(event)
       const itemPhase = this.state.agentMessagePhaseByItemId.get(codexId)
+      if (itemPhase === 'commentary' && this.state.answerByItemId.has(codexId)) {
+        // The phase arrived after this item's text was already classified (and
+        // streamed) as answer; moving it now would duplicate it. Keep it.
+        this.log('codex_renderer_late_commentary_phase', {
+          agent_session_id: this.sessionId,
+          codex_session_id: this.state.threadId || event?.session_id || event?.thread_id,
+          codex_item_id: codexId,
+          answer_chars: (this.state.answerByItemId.get(codexId) ?? '').length
+        })
+        return 'answer'
+      }
       if (itemPhase) return itemPhase === 'final_answer' ? 'answer' : 'commentary'
       if (
         event?.type === 'item.completed' &&
@@ -730,6 +804,7 @@ function newState(): CodexMapperState {
     emittedActivityRunByTaskId: new Map(),
     emittedActivityOutputByTaskId: new Map(),
     emittedActivitySignatureByTaskId: new Map(),
+    emittedCommentaryTaskByItemId: new Map(),
     done: false
   }
 }

@@ -1,0 +1,364 @@
+[
+{
+"method": "remoteControl/status/changed",
+"params": {
+"environmentId": null,
+"installationId": "299c0586-2387-4e65-8a2e-828f1fda6cb8",
+"serverName": "asbx-1787675021309-43",
+"status": "disabled"
+}
+},
+{
+"method": "mcpServer/startupStatus/updated",
+"params": {
+"error": null,
+"failureReason": null,
+"name": "honeycomb",
+"status": "starting",
+"threadId": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e"
+}
+},
+{
+"method": "thread/started",
+"params": {
+"thread": {
+"agentNickname": null,
+"agentRole": null,
+"cliVersion": "0.144.0",
+"createdAt": 1787684406,
+"cwd": "/home/agent/workspace",
+"ephemeral": false,
+"extra": null,
+"forkedFromId": null,
+"gitInfo": null,
+"historyMode": "legacy",
+"id": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e",
+"modelProvider": "pareto",
+"name": null,
+"parentThreadId": null,
+"path": "/home/agent/.codex/sessions/2026/08/25/rollout-2026-08-25T19-00-05-01a03a4b-42a3-7ca2-ba1d-bb79af551c7e.jsonl",
+"preview": "",
+"recencyAt": 1787684406,
+"sessionId": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e",
+"source": "vscode",
+"status": {
+"type": "idle"
+},
+"threadSource": null,
+"turns": [],
+"updatedAt": 1787684406
+}
+}
+},
+{
+"method": "thread/status/changed",
+"params": {
+"status": {
+"activeFlags": [],
+"type": "active"
+},
+"threadId": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e"
+}
+},
+{
+"method": "turn/started",
+"params": {
+"threadId": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e",
+"turn": {
+"completedAt": null,
+"durationMs": null,
+"error": null,
+"id": "01a03a4b-442b-7061-80b0-43931da6af87",
+"items": [],
+"itemsView": "notLoaded",
+"startedAt": 1787684406,
+"status": "inProgress"
+}
+}
+},
+{
+"method": "item/started",
+"params": {
+"item": {
+"clientId": null,
+"content": [
+{
+"text": "Run the shell command 'ls /' and then tell me how many entries it printed. Say what you are about to do before running it.",
+"text_elements": [],
+"type": "text"
+}
+],
+"id": "01a03a4b-4494-7400-8245-2b2d3e766428",
+"type": "userMessage"
+},
+"startedAtMs": 1787684406420,
+"threadId": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e",
+"turnId": "01a03a4b-442b-7061-80b0-43931da6af87"
+}
+},
+{
+"method": "item/completed",
+"params": {
+"completedAtMs": 1787684406420,
+"item": {
+"clientId": null,
+"content": [
+{
+"text": "Run the shell command 'ls /' and then tell me how many entries it printed. Say what you are about to do before running it.",
+"text_elements": [],
+"type": "text"
+}
+],
+"id": "01a03a4b-4494-7400-8245-2b2d3e766428",
+"type": "userMessage"
+},
+"threadId": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e",
+"turnId": "01a03a4b-442b-7061-80b0-43931da6af87"
+}
+},
+{
+"method": "mcpServer/startupStatus/updated",
+"params": {
+"error": null,
+"failureReason": null,
+"name": "honeycomb",
+"status": "ready",
+"threadId": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e"
+}
+},
+{
+"method": "item/started",
+"params": {
+"item": {
+"id": "msg_chatcmpl-mt9151k12tnhodmg",
+"memoryCitation": null,
+"phase": "commentary",
+"text": "",
+"type": "agentMessage"
+},
+"startedAtMs": 1787684409526,
+"threadId": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e",
+"turnId": "01a03a4b-442b-7061-80b0-43931da6af87"
+}
+},
+{
+"method": "item/agentMessage/delta",
+"params": {
+"delta": "I'm going to list the root directory entries with `ls /`, then count them.",
+"itemId": "msg_chatcmpl-mt9151k12tnhodmg",
+"threadId": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e",
+"turnId": "01a03a4b-442b-7061-80b0-43931da6af87"
+}
+},
+{
+"method": "item/completed",
+"params": {
+"completedAtMs": 1787684409526,
+"item": {
+"id": "msg_chatcmpl-mt9151k12tnhodmg",
+"memoryCitation": null,
+"phase": "commentary",
+"text": "I'm going to list the root directory entries with `ls /`, then count them.",
+"type": "agentMessage"
+},
+"threadId": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e",
+"turnId": "01a03a4b-442b-7061-80b0-43931da6af87"
+}
+},
+{
+"method": "item/started",
+"params": {
+"item": {
+"aggregatedOutput": null,
+"command": "/bin/bash -lc 'ls /'",
+"commandActions": [
+{
+"command": "ls /",
+"path": "",
+"type": "listFiles"
+}
+],
+"cwd": "/home/agent/workspace",
+"durationMs": null,
+"exitCode": null,
+"id": "chatcmpl-tool-9f675fdc96f82bd2",
+"processId": "40249",
+"source": "unifiedExecStartup",
+"status": "inProgress",
+"type": "commandExecution"
+},
+"startedAtMs": 1787684409701,
+"threadId": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e",
+"turnId": "01a03a4b-442b-7061-80b0-43931da6af87"
+}
+},
+{
+"method": "item/completed",
+"params": {
+"completedAtMs": 1787684409701,
+"item": {
+"aggregatedOutput": "=0.2.0\n=0.20.0\n=0.28.0\n=1.2.0\n=1.40.0\n=1.7.1\n=13.0.0\n=2.100.0\n=6.0.0\napp\nbin\nboot\ndev\nentrypoint.sh\netc\nfirewall-certs\nhome\nlib\nlib.usr-is-merged\nlib64\nmedia\nmnt\nopt\nproc\nroot\nrun\nsbin\nsrv\nsys\ntmp\nusr\nvar\n",
+"command": "/bin/bash -lc 'ls /'",
+"commandActions": [
+{
+"command": "ls /",
+"path": "",
+"type": "listFiles"
+}
+],
+"cwd": "/home/agent/workspace",
+"durationMs": 0,
+"exitCode": 0,
+"id": "chatcmpl-tool-9f675fdc96f82bd2",
+"processId": "40249",
+"source": "unifiedExecStartup",
+"status": "completed",
+"type": "commandExecution"
+},
+"threadId": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e",
+"turnId": "01a03a4b-442b-7061-80b0-43931da6af87"
+}
+},
+{
+"method": "thread/tokenUsage/updated",
+"params": {
+"threadId": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e",
+"tokenUsage": {
+"last": {
+"cachedInputTokens": 40960,
+"inputTokens": 41309,
+"outputTokens": 65,
+"reasoningOutputTokens": 0,
+"totalTokens": 41374
+},
+"modelContextWindow": 249036,
+"total": {
+"cachedInputTokens": 40960,
+"inputTokens": 41309,
+"outputTokens": 65,
+"reasoningOutputTokens": 0,
+"totalTokens": 41374
+}
+},
+"turnId": "01a03a4b-442b-7061-80b0-43931da6af87"
+}
+},
+{
+"method": "account/rateLimits/updated",
+"params": {
+"rateLimits": {
+"credits": null,
+"individualLimit": null,
+"limitId": "codex",
+"limitName": null,
+"planType": null,
+"primary": null,
+"rateLimitReachedType": null,
+"secondary": null
+}
+}
+},
+{
+"method": "item/started",
+"params": {
+"item": {
+"id": "msg_chatcmpl-mt91539ylctxbc2h",
+"memoryCitation": null,
+"phase": "final_answer",
+"text": "",
+"type": "agentMessage"
+},
+"startedAtMs": 1787684412745,
+"threadId": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e",
+"turnId": "01a03a4b-442b-7061-80b0-43931da6af87"
+}
+},
+{
+"method": "item/agentMessage/delta",
+"params": {
+"delta": "`ls /` printed 32 entries. Note that the leading nine lines (`=0.2.0`, `=0.20.0`, etc.) look like stray shell artifacts rather than normal root directory contents; excluding those, there are 23 standard filesystem entries.",
+"itemId": "msg_chatcmpl-mt91539ylctxbc2h",
+"threadId": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e",
+"turnId": "01a03a4b-442b-7061-80b0-43931da6af87"
+}
+},
+{
+"method": "item/completed",
+"params": {
+"completedAtMs": 1787684412746,
+"item": {
+"id": "msg_chatcmpl-mt91539ylctxbc2h",
+"memoryCitation": null,
+"phase": "final_answer",
+"text": "`ls /` printed 32 entries. Note that the leading nine lines (`=0.2.0`, `=0.20.0`, etc.) look like stray shell artifacts rather than normal root directory contents; excluding those, there are 23 standard filesystem entries.",
+"type": "agentMessage"
+},
+"threadId": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e",
+"turnId": "01a03a4b-442b-7061-80b0-43931da6af87"
+}
+},
+{
+"method": "thread/tokenUsage/updated",
+"params": {
+"threadId": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e",
+"tokenUsage": {
+"last": {
+"cachedInputTokens": 41216,
+"inputTokens": 41501,
+"outputTokens": 370,
+"reasoningOutputTokens": 0,
+"totalTokens": 41871
+},
+"modelContextWindow": 249036,
+"total": {
+"cachedInputTokens": 82176,
+"inputTokens": 82810,
+"outputTokens": 435,
+"reasoningOutputTokens": 0,
+"totalTokens": 83245
+}
+},
+"turnId": "01a03a4b-442b-7061-80b0-43931da6af87"
+}
+},
+{
+"method": "account/rateLimits/updated",
+"params": {
+"rateLimits": {
+"credits": null,
+"individualLimit": null,
+"limitId": "codex",
+"limitName": null,
+"planType": null,
+"primary": null,
+"rateLimitReachedType": null,
+"secondary": null
+}
+}
+},
+{
+"method": "thread/status/changed",
+"params": {
+"status": {
+"type": "idle"
+},
+"threadId": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e"
+}
+},
+{
+"method": "turn/completed",
+"params": {
+"threadId": "01a03a4b-42a3-7ca2-ba1d-bb79af551c7e",
+"turn": {
+"completedAt": 1787684412,
+"durationMs": 6425,
+"error": null,
+"id": "01a03a4b-442b-7061-80b0-43931da6af87",
+"items": [],
+"itemsView": "notLoaded",
+"startedAt": 1787684406,
+"status": "completed"
+}
+}
+}
+]

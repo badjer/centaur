@@ -1,0 +1,364 @@
+[
+{
+"method": "remoteControl/status/changed",
+"params": {
+"environmentId": null,
+"installationId": "2df7b752-6345-4488-8c5a-a1a6beab3a82",
+"serverName": "asbx-1787675508542-44",
+"status": "disabled"
+}
+},
+{
+"method": "mcpServer/startupStatus/updated",
+"params": {
+"error": null,
+"failureReason": null,
+"name": "honeycomb",
+"status": "starting",
+"threadId": "01a03a4b-9741-75a1-9eef-0079881a4dc7"
+}
+},
+{
+"method": "thread/started",
+"params": {
+"thread": {
+"agentNickname": null,
+"agentRole": null,
+"cliVersion": "0.144.0",
+"createdAt": 1787684427,
+"cwd": "/home/agent/workspace",
+"ephemeral": false,
+"extra": null,
+"forkedFromId": null,
+"gitInfo": null,
+"historyMode": "legacy",
+"id": "01a03a4b-9741-75a1-9eef-0079881a4dc7",
+"modelProvider": "pareto",
+"name": null,
+"parentThreadId": null,
+"path": "/home/agent/.codex/sessions/2026/08/25/rollout-2026-08-25T19-00-27-01a03a4b-9741-75a1-9eef-0079881a4dc7.jsonl",
+"preview": "",
+"recencyAt": 1787684427,
+"sessionId": "01a03a4b-9741-75a1-9eef-0079881a4dc7",
+"source": "vscode",
+"status": {
+"type": "idle"
+},
+"threadSource": null,
+"turns": [],
+"updatedAt": 1787684427
+}
+}
+},
+{
+"method": "thread/status/changed",
+"params": {
+"status": {
+"activeFlags": [],
+"type": "active"
+},
+"threadId": "01a03a4b-9741-75a1-9eef-0079881a4dc7"
+}
+},
+{
+"method": "turn/started",
+"params": {
+"threadId": "01a03a4b-9741-75a1-9eef-0079881a4dc7",
+"turn": {
+"completedAt": null,
+"durationMs": null,
+"error": null,
+"id": "01a03a4b-982f-7602-9aab-c613f497268d",
+"items": [],
+"itemsView": "notLoaded",
+"startedAt": 1787684427,
+"status": "inProgress"
+}
+}
+},
+{
+"method": "mcpServer/startupStatus/updated",
+"params": {
+"error": null,
+"failureReason": null,
+"name": "honeycomb",
+"status": "ready",
+"threadId": "01a03a4b-9741-75a1-9eef-0079881a4dc7"
+}
+},
+{
+"method": "item/started",
+"params": {
+"item": {
+"clientId": null,
+"content": [
+{
+"text": "Run the shell command 'ls /' and then tell me how many entries it printed. Say what you are about to do before running it.",
+"text_elements": [],
+"type": "text"
+}
+],
+"id": "01a03a4b-990d-7b71-8f46-9143e988e902",
+"type": "userMessage"
+},
+"startedAtMs": 1787684428045,
+"threadId": "01a03a4b-9741-75a1-9eef-0079881a4dc7",
+"turnId": "01a03a4b-982f-7602-9aab-c613f497268d"
+}
+},
+{
+"method": "item/completed",
+"params": {
+"completedAtMs": 1787684428045,
+"item": {
+"clientId": null,
+"content": [
+{
+"text": "Run the shell command 'ls /' and then tell me how many entries it printed. Say what you are about to do before running it.",
+"text_elements": [],
+"type": "text"
+}
+],
+"id": "01a03a4b-990d-7b71-8f46-9143e988e902",
+"type": "userMessage"
+},
+"threadId": "01a03a4b-9741-75a1-9eef-0079881a4dc7",
+"turnId": "01a03a4b-982f-7602-9aab-c613f497268d"
+}
+},
+{
+"method": "item/started",
+"params": {
+"item": {
+"id": "msg_chatcmpl-mt915hseg2bojiwm",
+"memoryCitation": null,
+"phase": "commentary",
+"text": "",
+"type": "agentMessage"
+},
+"startedAtMs": 1787684430238,
+"threadId": "01a03a4b-9741-75a1-9eef-0079881a4dc7",
+"turnId": "01a03a4b-982f-7602-9aab-c613f497268d"
+}
+},
+{
+"method": "item/agentMessage/delta",
+"params": {
+"delta": "I'll run `ls /` to list the top-level filesystem entries, then count them for you.",
+"itemId": "msg_chatcmpl-mt915hseg2bojiwm",
+"threadId": "01a03a4b-9741-75a1-9eef-0079881a4dc7",
+"turnId": "01a03a4b-982f-7602-9aab-c613f497268d"
+}
+},
+{
+"method": "item/completed",
+"params": {
+"completedAtMs": 1787684430239,
+"item": {
+"id": "msg_chatcmpl-mt915hseg2bojiwm",
+"memoryCitation": null,
+"phase": "commentary",
+"text": "I'll run `ls /` to list the top-level filesystem entries, then count them for you.",
+"type": "agentMessage"
+},
+"threadId": "01a03a4b-9741-75a1-9eef-0079881a4dc7",
+"turnId": "01a03a4b-982f-7602-9aab-c613f497268d"
+}
+},
+{
+"method": "item/started",
+"params": {
+"item": {
+"aggregatedOutput": null,
+"command": "/bin/bash -lc 'ls /'",
+"commandActions": [
+{
+"command": "ls /",
+"path": "",
+"type": "listFiles"
+}
+],
+"cwd": "/home/agent/workspace",
+"durationMs": null,
+"exitCode": null,
+"id": "chatcmpl-tool-8d1fe0510edff7b6",
+"processId": "6438",
+"source": "unifiedExecStartup",
+"status": "inProgress",
+"type": "commandExecution"
+},
+"startedAtMs": 1787684430410,
+"threadId": "01a03a4b-9741-75a1-9eef-0079881a4dc7",
+"turnId": "01a03a4b-982f-7602-9aab-c613f497268d"
+}
+},
+{
+"method": "item/completed",
+"params": {
+"completedAtMs": 1787684430411,
+"item": {
+"aggregatedOutput": "=0.2.0\n=0.20.0\n=0.28.0\n=1.2.0\n=1.40.0\n=1.7.1\n=13.0.0\n=2.100.0\n=6.0.0\napp\nbin\nboot\ndev\nentrypoint.sh\netc\nfirewall-certs\nhome\nlib\nlib.usr-is-merged\nlib64\nmedia\nmnt\nopt\nproc\nroot\nrun\nsbin\nsrv\nsys\ntmp\nusr\nvar\n",
+"command": "/bin/bash -lc 'ls /'",
+"commandActions": [
+{
+"command": "ls /",
+"path": "",
+"type": "listFiles"
+}
+],
+"cwd": "/home/agent/workspace",
+"durationMs": 0,
+"exitCode": 0,
+"id": "chatcmpl-tool-8d1fe0510edff7b6",
+"processId": "6438",
+"source": "unifiedExecStartup",
+"status": "completed",
+"type": "commandExecution"
+},
+"threadId": "01a03a4b-9741-75a1-9eef-0079881a4dc7",
+"turnId": "01a03a4b-982f-7602-9aab-c613f497268d"
+}
+},
+{
+"method": "thread/tokenUsage/updated",
+"params": {
+"threadId": "01a03a4b-9741-75a1-9eef-0079881a4dc7",
+"tokenUsage": {
+"last": {
+"cachedInputTokens": 41216,
+"inputTokens": 41309,
+"outputTokens": 34,
+"reasoningOutputTokens": 0,
+"totalTokens": 41343
+},
+"modelContextWindow": 249036,
+"total": {
+"cachedInputTokens": 41216,
+"inputTokens": 41309,
+"outputTokens": 34,
+"reasoningOutputTokens": 0,
+"totalTokens": 41343
+}
+},
+"turnId": "01a03a4b-982f-7602-9aab-c613f497268d"
+}
+},
+{
+"method": "account/rateLimits/updated",
+"params": {
+"rateLimits": {
+"credits": null,
+"individualLimit": null,
+"limitId": "codex",
+"limitName": null,
+"planType": null,
+"primary": null,
+"rateLimitReachedType": null,
+"secondary": null
+}
+}
+},
+{
+"method": "item/started",
+"params": {
+"item": {
+"id": "msg_chatcmpl-mt915j9z8c5o4f0i",
+"memoryCitation": null,
+"phase": "final_answer",
+"text": "",
+"type": "agentMessage"
+},
+"startedAtMs": 1787684433080,
+"threadId": "01a03a4b-9741-75a1-9eef-0079881a4dc7",
+"turnId": "01a03a4b-982f-7602-9aab-c613f497268d"
+}
+},
+{
+"method": "item/agentMessage/delta",
+"params": {
+"delta": "`ls /` printed **32** entries. Most are standard filesystem directories (`bin`, `etc`, `home`, `usr`, etc.), plus a few environment-specific items like `entrypoint.sh`, `firewall-certs`, and several oddly named entries beginning with `=` (e.g. `=0.2.0`, `=1.40.0`) that look like stray artifacts rather than real directories.",
+"itemId": "msg_chatcmpl-mt915j9z8c5o4f0i",
+"threadId": "01a03a4b-9741-75a1-9eef-0079881a4dc7",
+"turnId": "01a03a4b-982f-7602-9aab-c613f497268d"
+}
+},
+{
+"method": "item/completed",
+"params": {
+"completedAtMs": 1787684433080,
+"item": {
+"id": "msg_chatcmpl-mt915j9z8c5o4f0i",
+"memoryCitation": null,
+"phase": "final_answer",
+"text": "`ls /` printed **32** entries. Most are standard filesystem directories (`bin`, `etc`, `home`, `usr`, etc.), plus a few environment-specific items like `entrypoint.sh`, `firewall-certs`, and several oddly named entries beginning with `=` (e.g. `=0.2.0`, `=1.40.0`) that look like stray artifacts rather than real directories.",
+"type": "agentMessage"
+},
+"threadId": "01a03a4b-9741-75a1-9eef-0079881a4dc7",
+"turnId": "01a03a4b-982f-7602-9aab-c613f497268d"
+}
+},
+{
+"method": "thread/tokenUsage/updated",
+"params": {
+"threadId": "01a03a4b-9741-75a1-9eef-0079881a4dc7",
+"tokenUsage": {
+"last": {
+"cachedInputTokens": 41216,
+"inputTokens": 41503,
+"outputTokens": 308,
+"reasoningOutputTokens": 0,
+"totalTokens": 41811
+},
+"modelContextWindow": 249036,
+"total": {
+"cachedInputTokens": 82432,
+"inputTokens": 82812,
+"outputTokens": 342,
+"reasoningOutputTokens": 0,
+"totalTokens": 83154
+}
+},
+"turnId": "01a03a4b-982f-7602-9aab-c613f497268d"
+}
+},
+{
+"method": "account/rateLimits/updated",
+"params": {
+"rateLimits": {
+"credits": null,
+"individualLimit": null,
+"limitId": "codex",
+"limitName": null,
+"planType": null,
+"primary": null,
+"rateLimitReachedType": null,
+"secondary": null
+}
+}
+},
+{
+"method": "thread/status/changed",
+"params": {
+"status": {
+"type": "idle"
+},
+"threadId": "01a03a4b-9741-75a1-9eef-0079881a4dc7"
+}
+},
+{
+"method": "turn/completed",
+"params": {
+"threadId": "01a03a4b-9741-75a1-9eef-0079881a4dc7",
+"turn": {
+"completedAt": 1787684433,
+"durationMs": 5249,
+"error": null,
+"id": "01a03a4b-982f-7602-9aab-c613f497268d",
+"items": [],
+"itemsView": "notLoaded",
+"startedAt": 1787684427,
+"status": "completed"
+}
+}
+}
+]
