@@ -15,7 +15,10 @@ type PlanChunk = Extract<ChatSDKStreamChunk, { type: 'plan_update' }>
  * - `markdown_text` deltas are concatenated into one pending chunk (markdown
  *   is append-only content, so merging loses nothing),
  * - `task_update`s are keyed by id and merged per field, newest value
- *   winning. Updates often omit `details`/`output` to mean "unchanged" (the
+ *   winning - except `details` and `output`, which are appended: producers
+ *   send them as increments (tool output, Thinking-card text) and Slack
+ *   renders them cumulatively, so two buffered increments must both reach
+ *   the card. Updates often omit `details`/`output` to mean "unchanged" (the
  *   chunk schema cannot express clearing a field), so absent fields inherit
  *   the pending value instead of dropping content the consumer never sent,
  * - `plan_update` keeps only the latest title.
@@ -53,7 +56,7 @@ export async function* conflateChatSdkStream(
           pendingPlan = chunk
         } else {
           const pending = pendingTasks.get(chunk.id)
-          pendingTasks.set(chunk.id, pending ? { ...pending, ...chunk } : chunk)
+          pendingTasks.set(chunk.id, pending ? mergeTaskChunks(pending, chunk) : chunk)
         }
         wake?.()
       }
@@ -106,5 +109,18 @@ export async function* conflateChatSdkStream(
     if (!sourceDone) {
       void Promise.resolve(iterator.return?.()).catch(() => undefined)
     }
+  }
+}
+
+function mergeTaskChunks(pending: TaskChunk, chunk: TaskChunk): TaskChunk {
+  return {
+    ...pending,
+    ...chunk,
+    ...(pending.details !== undefined && chunk.details !== undefined
+      ? { details: pending.details + chunk.details }
+      : {}),
+    ...(pending.output !== undefined && chunk.output !== undefined
+      ? { output: pending.output + chunk.output }
+      : {})
   }
 }
