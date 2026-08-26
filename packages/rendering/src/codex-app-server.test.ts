@@ -1074,7 +1074,11 @@ describe('commentaryDisplay: task', () => {
     expect(detailsOf(card)).toBe('Let me check the logs. ')
   })
 
-  it('completes each card at its own item.completed, not at turn end', () => {
+  it('holds a finished card in progress until the next card starts, then completes it', () => {
+    // Slack titles the card block after the last completed task when nothing
+    // is in progress, so completing a preamble card the moment its item ends
+    // would show "Thinking completed" mid-turn. The completion is emitted by
+    // the step that starts the next card (here the tool), not at turn end.
     const mapper = new CodexAppServerRendererEventMapper(TASK)
     const cardsFrom = (events: unknown[]) =>
       events.flatMap(e => mapper.process(e)).flatMap(e =>
@@ -1083,20 +1087,32 @@ describe('commentaryDisplay: task', () => {
     const [started, delta, completed] = agentMessage('msg_1', 'commentary', PREAMBLE)
     expect(cardsFrom([started])).toEqual([])
     expect(cardsFrom([delta])).toEqual(['commentary-msg_1=in_progress'])
-    // The completion carries the same text the delta already built; the card
-    // must still complete here, before the tool runs.
-    expect(cardsFrom([completed])).toEqual(['commentary-msg_1=complete'])
-    expect(cardsFrom(command('call_1'))).toEqual([])
-    expect(cardsFrom(agentMessage('msg_2', 'final_answer', ANSWER))).toEqual([])
-    expect(cardsFrom([TURN_COMPLETED])).toEqual([])
+    expect(cardsFrom([completed])).toEqual([])
+    const [toolStarted, toolCompleted] = command('call_1')
+    expect(cardsFrom([toolStarted])).toEqual(['commentary-msg_1=complete'])
+    expect(cardsFrom([toolCompleted])).toEqual([])
+    // A second preamble releases the first the same way, and the last one is
+    // released by the turn end.
+    const [s2, d2, c2] = agentMessage('msg_2', 'commentary', 'Digging further.')
+    expect(cardsFrom([s2, d2, c2])).toEqual(['commentary-msg_2=in_progress'])
+    expect(cardsFrom(agentMessage('msg_3', 'final_answer', ANSWER))).toEqual([])
+    expect(cardsFrom([TURN_COMPLETED])).toEqual(['commentary-msg_2=complete'])
   })
 
   it('errors only the card still open when the execution fails', () => {
     const mapper = new CodexAppServerRendererEventMapper(TASK)
     for (const e of [...agentMessage('msg_1', 'commentary', 'Checking.'), ...command('call_1'), ...agentMessage('msg_2', 'commentary', 'Digging.'), ...command('call_2')]) mapper.process(e)
-    // Two preambles completed normally: a failure now touches neither card.
+    // Two preambles finished and were released by the tool cards after them:
+    // a failure now touches neither.
     const afterCompleted = mapper.process({ eventKind: 'session.execution_failed', data: { error: 'boom' } })
     expect(afterCompleted.filter(e => e.type === 'renderer.task.update' && e.task.id.startsWith('commentary-'))).toEqual([])
+
+    // A finished preamble still held (no card after it yet) completes on
+    // failure rather than erroring.
+    const held = new CodexAppServerRendererEventMapper(TASK)
+    for (const e of agentMessage('msg_1', 'commentary', 'Checking.')) held.process(e)
+    const heldOut = held.process({ eventKind: 'session.execution_failed', data: { error: 'boom' } })
+    expect(heldOut.flatMap(e => (e.type === 'renderer.task.update' && e.task.id.startsWith('commentary-') ? [`${e.task.id}=${e.task.status}`] : []))).toEqual(['commentary-msg_1=complete'])
 
     const inFlight = new CodexAppServerRendererEventMapper(TASK)
     for (const e of [...agentMessage('msg_1', 'commentary', 'Checking.'), ...command('call_1')]) inFlight.process(e)

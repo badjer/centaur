@@ -67,6 +67,13 @@ type CodexMapperState = {
   // Per commentary item: the last "Thinking" task update sent (text + status),
   // so identical updates aren't repeated and open cards get closed at the end.
   emittedCommentaryTaskByItemId: Map<string, { text: string; status: RendererTaskStatus }>
+  // Commentary items whose item.completed arrived but whose card is still
+  // shown in_progress: Slack titles the whole card block after the last
+  // completed task when nothing is in progress ("Thinking completed" while the
+  // turn is still running), so a finished card is completed when the next card
+  // starts or the turn ends - the same hold tool cards get in
+  // holdLastFinishedTask.
+  heldCommentaryItemIds: Set<string>
   done: boolean
 }
 
@@ -308,7 +315,11 @@ export class CodexAppServerRendererEventMapper
       // (bufferChanged=false) but it is still the card's completion.
       const completed = event?.type === 'item.completed'
       if (buffer === 'commentary' && (update.bufferChanged || completed)) {
-        this.emitCommentaryTask(out, agentMessageEventId(event), completed ? 'complete' : 'in_progress')
+        const itemId = agentMessageEventId(event)
+        this.emitCommentaryTask(out, itemId, 'in_progress')
+        if (completed && itemId && this.state.emittedCommentaryTaskByItemId.has(itemId)) {
+          this.state.heldCommentaryItemIds.add(itemId)
+        }
       }
       if (update.bufferChanged) {
         this.emitPendingAssistantText(out)
@@ -398,6 +409,7 @@ export class CodexAppServerRendererEventMapper
   // item id so it sits between the tool cards it preceded.
   private emitCommentaryTask(out: RendererEvent[], itemId: string, status: RendererTaskStatus): void {
     if (this.commentaryDisplay !== 'task' || !itemId) return
+    if (status === 'in_progress') this.releaseHeldCommentaryTasks(out, itemId)
     const shown = this.state.emittedCommentaryTaskByItemId.get(itemId)
     const commentary = this.state.commentaryByItemId.get(itemId) ?? ''
     if (!commentary.trim() && !shown) return
@@ -426,17 +438,30 @@ export class CodexAppServerRendererEventMapper
   }
 
   // A card left in_progress is a spinner forever: close whatever is still open
-  // when the turn ends, with the text it last showed.
+  // when the turn ends. A card whose item finished completes; only one still
+  // mid-stream takes the closing status (error on failure).
   private closeOpenCommentaryTasks(out: RendererEvent[], status: RendererTaskStatus): void {
+    this.releaseHeldCommentaryTasks(out)
     for (const [itemId, shown] of this.state.emittedCommentaryTaskByItemId) {
       if (shown.status === 'in_progress') this.emitCommentaryTask(out, itemId, status)
+    }
+  }
+
+  // Complete every finished card except `except` (the card that is starting).
+  private releaseHeldCommentaryTasks(out: RendererEvent[], except?: string): void {
+    for (const itemId of Array.from(this.state.heldCommentaryItemIds)) {
+      if (itemId === except) continue
+      this.state.heldCommentaryItemIds.delete(itemId)
+      this.emitCommentaryTask(out, itemId, 'complete')
     }
   }
 
   private emitActivitySummary(out: RendererEvent[], opts: { final?: boolean } = {}): void {
     const tasks = Array.from(this.state.taskByUseId.values())
     if (!tasks.length) return
-    for (const update of changedActivityTaskUpdates(this.state, tasks, opts)) {
+    const updates = changedActivityTaskUpdates(this.state, tasks, opts)
+    if (updates.length) this.releaseHeldCommentaryTasks(out)
+    for (const update of updates) {
       out.push({
         type: 'renderer.task.update',
         task: {
@@ -813,6 +838,7 @@ function newState(): CodexMapperState {
     emittedActivityOutputByTaskId: new Map(),
     emittedActivitySignatureByTaskId: new Map(),
     emittedCommentaryTaskByItemId: new Map(),
+    heldCommentaryItemIds: new Set(),
     done: false
   }
 }
