@@ -913,6 +913,10 @@ function markdownOf(chunks: Chunk[]): string {
 function thinkingOf(chunks: Chunk[]): Chunk[] {
   return chunks.filter(c => c.type === 'task_update' && String(c.id).startsWith('commentary-'))
 }
+// What a card ends up showing: Slack appends each update's details.
+function detailsOf(updates: Chunk[]): string {
+  return updates.map(c => (typeof c.details === 'string' ? c.details : '')).join('')
+}
 function taskOrder(chunks: Chunk[]): string[] {
   const seen: string[] = []
   for (const c of chunks) if (c.type === 'task_update' && !seen.includes(String(c.id))) seen.push(String(c.id))
@@ -922,9 +926,11 @@ function taskOrder(chunks: Chunk[]): string[] {
 describe('commentaryDisplay: task', () => {
   it('shows a phased preamble as a live Thinking card and only the final answer as text', async () => {
     const chunks = await chunksOf(POST_463_TURN, TASK)
+    // Details accumulate on a card across updates, so the text is sent once
+    // and the completion carries only the status.
     expect(thinkingOf(chunks)).toEqual([
       { type: 'task_update', id: 'commentary-msg_1', title: 'Thinking', status: 'in_progress', details: PREAMBLE },
-      { type: 'task_update', id: 'commentary-msg_1', title: 'Thinking', status: 'complete', details: PREAMBLE }
+      { type: 'task_update', id: 'commentary-msg_1', title: 'Thinking', status: 'complete' }
     ])
     expect(markdownOf(chunks)).toBe(ANSWER)
   })
@@ -938,7 +944,8 @@ describe('commentaryDisplay: task', () => {
       const preamble = completed.find(i => i.phase === 'commentary')!.text!
       const answer = completed.find(i => i.phase === 'final_answer')!.text!
       const thinking = thinkingOf(chunks)
-      expect(thinking.at(-1)).toMatchObject({ title: 'Thinking', status: 'complete', details: preamble })
+      expect(thinking.at(-1)).toMatchObject({ title: 'Thinking', status: 'complete' })
+      expect(detailsOf(thinking)).toBe(preamble)
       expect(markdownOf(chunks)).toBe(answer)
       expect(markdownOf(chunks)).not.toContain(preamble)
     }
@@ -957,8 +964,9 @@ describe('commentaryDisplay: task', () => {
       TASK
     )
     expect(taskOrder(chunks)).toEqual(['commentary-msg_1', 'call_1', 'commentary-msg_2', 'call_2'])
-    const finals = thinkingOf(chunks).filter(c => c.status === 'complete')
-    expect(finals.map(c => c.details)).toEqual(['Checking the logs.', 'Logs show a 502; checking the router.'])
+    expect(detailsOf(thinkingOf(chunks).filter(c => c.id === 'commentary-msg_1'))).toBe('Checking the logs.')
+    expect(detailsOf(thinkingOf(chunks).filter(c => c.id === 'commentary-msg_2'))).toBe('Logs show a 502; checking the router.')
+    expect(thinkingOf(chunks).filter(c => c.status === 'complete').map(c => c.id)).toEqual(['commentary-msg_1', 'commentary-msg_2'])
     expect(markdownOf(chunks)).toBe('Root cause: router restarted.')
   })
 
@@ -999,9 +1007,9 @@ describe('commentaryDisplay: task', () => {
     expect(markdownOf(chunks)).not.toContain(EMPTY_FINAL_ANSWER_TEXT)
     // The promoted item's card had already completed with its text; that
     // duplicate inside a collapsed card is the accepted trade-off.
-    const finals = thinkingOf(chunks).filter(c => c.status === 'complete')
-    expect(finals.map(c => c.details)).toEqual([PREAMBLE, 'Done — fixed foo.ts.'])
-    expect(thinkingOf(chunks).filter(c => c.status === 'in_progress').map(c => c.id)).toEqual([
+    expect(detailsOf(thinkingOf(chunks).filter(c => c.id === 'commentary-msg_1'))).toBe(PREAMBLE)
+    expect(detailsOf(thinkingOf(chunks).filter(c => c.id === 'commentary-msg_2'))).toBe('Done — fixed foo.ts.')
+    expect(thinkingOf(chunks).filter(c => c.status === 'complete').map(c => c.id)).toEqual([
       'commentary-msg_1',
       'commentary-msg_2'
     ])
@@ -1023,6 +1031,47 @@ describe('commentaryDisplay: task', () => {
     expect(markdownOf(chunks)).toBe(`${PREAMBLE}\n\n${ANSWER}`)
     expect(thinkingOf(chunks)).toEqual([])
     expect(logged).toContain('codex_renderer_late_commentary_phase')
+  })
+
+  it('sends a card its text exactly once even when it streams in several deltas', async () => {
+    const chunks = await chunksOf(
+      [
+        { method: 'item/started', params: { item: { id: 'msg_1', type: 'agentMessage', phase: 'commentary', text: '' } } },
+        { method: 'item/agentMessage/delta', params: { itemId: 'msg_1', delta: 'Let me ' } },
+        { method: 'item/agentMessage/delta', params: { itemId: 'msg_1', delta: 'check the ' } },
+        { method: 'item/agentMessage/delta', params: { itemId: 'msg_1', delta: 'logs.' } },
+        { method: 'item/completed', params: { item: { id: 'msg_1', type: 'agentMessage', phase: 'commentary', text: 'Let me check the logs.' } } },
+        ...command('call_1'),
+        ...agentMessage('msg_2', 'final_answer', ANSWER),
+        TURN_COMPLETED
+      ],
+      TASK
+    )
+    const card = thinkingOf(chunks)
+    expect(card.map(c => c.details)).toEqual(['Let me ', 'check the ', 'logs.', undefined])
+    expect(card.map(c => c.status)).toEqual(['in_progress', 'in_progress', 'in_progress', 'complete'])
+    expect(detailsOf(card)).toBe('Let me check the logs.')
+  })
+
+  it('sends nothing more when item.completed does not extend the streamed text', async () => {
+    // Deltas built "…logs. " (trailing space); the canonical text drops it. It
+    // cannot be retracted from the card, so the completion sends no details.
+    const chunks = await chunksOf(
+      [
+        { method: 'item/started', params: { item: { id: 'msg_1', type: 'agentMessage', phase: 'commentary', text: '' } } },
+        { method: 'item/agentMessage/delta', params: { itemId: 'msg_1', delta: 'Let me check ' } },
+        { method: 'item/agentMessage/delta', params: { itemId: 'msg_1', delta: 'the logs. ' } },
+        { method: 'item/completed', params: { item: { id: 'msg_1', type: 'agentMessage', phase: 'commentary', text: 'Let me check the logs.' } } },
+        ...command('call_1'),
+        ...agentMessage('msg_2', 'final_answer', ANSWER),
+        TURN_COMPLETED
+      ],
+      TASK
+    )
+    const card = thinkingOf(chunks)
+    expect(card.map(c => c.details)).toEqual(['Let me check ', 'the logs. ', undefined])
+    expect(card.at(-1)!.status).toBe('complete')
+    expect(detailsOf(card)).toBe('Let me check the logs. ')
   })
 
   it('completes each card at its own item.completed, not at turn end', () => {

@@ -395,22 +395,30 @@ export class CodexAppServerRendererEventMapper
   }
 
   // One "Thinking" task per commentary item (as nanocodex does), keyed by the
-  // item id so it sits between the tool cards it preceded. The whole item text
-  // goes out on every change - task updates replace, not append.
+  // item id so it sits between the tool cards it preceded.
   private emitCommentaryTask(out: RendererEvent[], itemId: string, status: RendererTaskStatus): void {
     if (this.commentaryDisplay !== 'task' || !itemId) return
     const shown = this.state.emittedCommentaryTaskByItemId.get(itemId)
-    const commentary = (this.state.commentaryByItemId.get(itemId) ?? '').trim() || (shown?.text ?? '')
-    if (!commentary) return
-    if (shown && shown.text === commentary && shown.status === status) return
-    this.state.emittedCommentaryTaskByItemId.set(itemId, { text: commentary, status })
+    const commentary = this.state.commentaryByItemId.get(itemId) ?? ''
+    if (!commentary.trim() && !shown) return
+    // Details accumulate across updates to the same card (Slack renders them
+    // cumulatively), so send only the text not sent yet - the rule tool output
+    // uses above. A status change with no new text goes out without details.
+    // If the canonical text stops extending what was sent (item.completed
+    // trimmed a trailing space, say), nothing can be retracted: send nothing
+    // rather than the whole text again.
+    const sent = shown?.text ?? ''
+    const extends_ = commentary.startsWith(sent)
+    const delta = extends_ ? commentary.slice(sent.length) : ''
+    if (!delta && shown?.status === status) return
+    this.state.emittedCommentaryTaskByItemId.set(itemId, { text: extends_ ? commentary : sent, status })
     out.push({
       type: 'renderer.task.update',
       task: {
         id: `commentary-${itemId}`,
         title: 'Thinking',
         status,
-        details: [section([text(commentary)])],
+        details: delta ? [section([text(delta)])] : [],
         output: []
       },
       flush: true
