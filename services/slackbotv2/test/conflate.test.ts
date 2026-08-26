@@ -76,6 +76,29 @@ function markdown(text: string): ChatSDKStreamChunk {
 }
 
 describe('conflateChatSdkStream', () => {
+  it('appends buffered details and output for the same card instead of keeping only the newest', async () => {
+    const source = manualSource()
+    const stream = conflateChatSdkStream(source.iterable)[Symbol.asyncIterator]()
+    source.push(markdown('start'))
+    expect((await stream.next()).value).toEqual(markdown('start'))
+
+    source.push({ type: 'task_update', id: 'commentary-1', title: 'Thinking', status: 'in_progress', details: 'Let me ' })
+    source.push({ type: 'task_update', id: 'commentary-1', title: 'Thinking', status: 'in_progress', details: 'check.' })
+    source.push({ type: 'task_update', id: 'cmd-1', title: 'Command', status: 'in_progress', output: 'line 1\n' })
+    source.push({ type: 'task_update', id: 'cmd-1', title: 'Command', status: 'complete', output: 'line 2\n' })
+    source.push({ type: 'task_update', id: 'commentary-1', title: 'Thinking', status: 'complete' })
+    await settle()
+
+    expect((await stream.next()).value).toEqual({
+      type: 'task_update', id: 'commentary-1', title: 'Thinking', status: 'complete', details: 'Let me check.'
+    })
+    expect((await stream.next()).value).toEqual({
+      type: 'task_update', id: 'cmd-1', title: 'Command', status: 'complete', output: 'line 1\nline 2\n'
+    })
+    source.end()
+    expect((await stream.next()).done).toBe(true)
+  })
+
   it('collapses task updates and concatenates markdown while the consumer is busy', async () => {
     const source = manualSource()
     const stream = conflateChatSdkStream(source.iterable)[Symbol.asyncIterator]()
@@ -116,7 +139,9 @@ describe('conflateChatSdkStream', () => {
     source.push(task('a', 'complete'))
     await settle()
 
-    expect((await stream.next()).value).toEqual(task('a', 'complete', 'second details'))
+    // Both increments reach the card (they are appended on the wire); the
+    // omitted details on the completion inherit rather than clear.
+    expect((await stream.next()).value).toEqual(task('a', 'complete', 'first detailssecond details'))
     source.end()
     expect((await stream.next()).done).toBe(true)
   })
