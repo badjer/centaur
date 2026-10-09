@@ -78,7 +78,9 @@ const options: SlackbotV2Options = {
     ...(optionalEnv('CODEX_MODEL')
       ? { codex: optionalEnv('CODEX_MODEL')!, nanocodex: optionalEnv('CODEX_MODEL')! }
       : {}),
-    ...(optionalEnv('CENTAUR_PI_MODEL') ? { pi: optionalEnv('CENTAUR_PI_MODEL')! } : {})
+    ...(optionalEnv('CENTAUR_PI_MODEL') ? { pi: optionalEnv('CENTAUR_PI_MODEL')! } : {}),
+    // Hermes keeps its model in its own config.yaml, which slackbotv2 never sees; the deployment mirrors it via env so the footer reads e.g. "PARETO · Hermes".
+    ...(optionalEnv('HERMES_MODEL') ? { hermes: optionalEnv('HERMES_MODEL')! } : {})
   },
   harnessDefaultReasoning: optionalEnv('CODEX_MODEL_REASONING_EFFORT')
     ? {
